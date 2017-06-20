@@ -9,10 +9,11 @@ from click.testing import CliRunner
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_dir)
 
+# TODO: abstract
 from parsec.cli import list_cmds, list_subcmds
 from parsec import cli
 
-parsec_cli = cli.parsec
+base_cli = cli.parsec
 runner = CliRunner()
 
 COMMAND_TEMPLATE = Template('''
@@ -22,6 +23,7 @@ ${module_underline}
 ${command_help}
 ''')
 
+# TODO: abstract
 COMMANDS_TEMPLATE = """========
 Commands
 ========
@@ -47,14 +49,16 @@ for command in list_cmds():
     parent_doc_handle = open(os.path.join(command_doc_dir, command + ".rst"), "w")
     parent_doc_handle.write('%s\n' % command)
     parent_doc_handle.write('%s\n' % ('=' * len(command)))
+    # TODO: abstract
     parent_doc_handle.write(Template("""
-This section is auto-generated from the help text for the arrow command
+This section is auto-generated from the help text for the {library} command
 ``${command}``.
 
-""").safe_substitute(command=command))
+""").safe_substitute(command=command, library='parsec'))
 
 
     for subcommand in list_subcmds(command):
+        # TODO: allow calling an pre-commit function from eval'd string.
 
         command_obj = cli.name_to_command(command, subcommand)
 
@@ -74,7 +78,9 @@ This section is auto-generated from the help text for the arrow command
         else:
             output_rst = ""
 
-        result = runner.invoke(parsec_cli, [command, subcommand, "--help"])
+        result = runner.invoke(base_cli, [command, subcommand, "--help"])
+        # TODO:if verbose
+        # print(result)
         output = result.output
         lines = output.split("\n")
         new_lines = []

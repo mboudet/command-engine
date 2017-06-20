@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-
 import importlib
 import inspect
 import os
-import re
 import copy
+import re
 import glob
 import argparse
 import logging
@@ -12,7 +11,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
+PROJECT_NAME = 'parsec'
+# TODO: abstract out to a conf file.
 import bioblend.galaxy as bg
+# import chado as bg
+# CHAKIN_IGNORE_LIST = [
+# 'get', 'post'
+# ]
 IGNORE_LIST = [
     'histories.download_dataset',
     'histories.get_current_history',
@@ -30,6 +35,13 @@ IGNORE_LIST = [
     'show_stdout',
 ]
 
+
+def nice_name(label):
+    tmp = label.replace('_', ' ')
+    tmp = tmp[0].upper() + tmp[1:]
+    callback = lambda pat: ' ' + pat.group(1).upper()
+    tmp = re.sub(r' ([a-z])', callback, tmp)
+    return tmp
 
 
 PARAM_TRANSLATION = {
@@ -63,6 +75,57 @@ PARAM_TRANSLATION = {
     'None': [],
 }
 
+PARAM_TRANSLATION_GALAXY = {
+    'str': '<param name="{name}" label="{label}" argument="{name}" type="text" {help} />',
+    'dict': '<param name="{name}" label="{label}" argument="{name}" type="data" format="json" {help} />',
+    'int': '<param name="{name}" label="{label}" argument="{name}" type="integer" value="{default}" {help} />',
+    'float': '<param name="{name}" label="{label}" argument="{name}" type="float" value="{default}" {help} />',
+    'bool': '<param name="{name}" label="{label}" argument="{name}" type="booelan" truevalue="--{name}" falsevalue="" {help} />',
+    'file': '<param name="{name}" label="{label}" argument="{name}" type="data" format="data" {help} />',
+    None: '<error />',
+    'list of str': '<repeat name="repeat_{name}" title="{name}">\n\t\t<param name="{name}" label="{label}" argument="{name}" type="text" {help} />\n\t</repeat>',
+    'list': '<repeat name="repeat_{name}" title="{name}">\n\t\t<param name="{name}" label="{label}" argument="{name}" type="text" {help} />\n\t</repeat>',
+}
+
+PARAM_TRANSLATION_GALAXY_CLI = {
+    'str': {
+        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
+        'arg': '"${name}"',
+    },
+    'dict':{
+        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
+        'arg': '"${name}"',
+    },
+    'int':{
+        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
+        'arg': '"${name}"',
+    },
+    'float':{
+        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
+        'arg': '"${name}"',
+    },
+    'bool':{
+        'opt': '#if ${name}:\n  ${name}\n#end if',
+        'arg': '--${name}',
+    },
+    'file':{
+        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
+        'arg': '"${name}"',
+    },
+    None:{
+        'opt': '## UNKNOWN {name}',
+        'arg': '## UNKNOWN {name}',
+    },
+    'list of str':{
+        'opt': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
+        'arg': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
+    },
+    'list':{
+        'opt': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
+        'arg': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
+    },
+}
+
 class ScriptBuilder(object):
 
     def __init__(self):
@@ -73,7 +136,7 @@ class ScriptBuilder(object):
             (tpl_id, ext) = os.path.splitext(os.path.basename(template))
             self.templates[tpl_id] = open(template, 'r').read()
 
-        # TODO: refactor
+        # TODO: abstract
         self.obj = bg.GalaxyInstance("http://localhost:8080", "API_KEY")
 
     def template(self, template, opts):
@@ -87,9 +150,19 @@ class ScriptBuilder(object):
         ]
         if default:
             args.append('default="%s"' % default)
+            args.append('show_default=True')
         if ptype is not None:
             args.extend(ptype)
         return '@click.option(\n%s\n)\n' % (',\n'.join(['    ' + x for x in args]))
+
+    @classmethod
+    def __galaxy_option(cls, name='arg', helpstr='TODO', ptype=None, default=None):
+        return '\t' + PARAM_TRANSLATION_GALAXY[ptype].format(
+            name=name,
+            label=nice_name(name),
+            help=('help="%s"' % helpstr.replace('"', '\\"') if helpstr else ""),
+            default=default if default else 0
+        ) + '\n'
 
     @classmethod
     def __click_argument(cls, name='arg', ptype=None):
@@ -99,6 +172,15 @@ class ScriptBuilder(object):
         if ptype is not None:
             args.extend(ptype)
         return '@click.argument(%s)\n' % (', '.join(args), )
+
+    @classmethod
+    def __galaxy_argument(cls, name='arg', ptype=None, desc=None):
+        return '\t' + PARAM_TRANSLATION_GALAXY[ptype].format(
+            name=name,
+            label=nice_name(name),
+            help='help="%s"' % desc,
+            default=0,
+        ) + '\n'
 
     @classmethod
     def load_module(cls, module_path):
@@ -114,6 +196,7 @@ class ScriptBuilder(object):
         return False
 
     def is_galaxyinstance(self, obj):
+        # TODO: abstract
         return str(type(obj)) == "<class 'bioblend.galaxy.GalaxyInstance'>"
 
     def is_function(self, obj):
@@ -189,37 +272,38 @@ class ScriptBuilder(object):
             defaults.append(None)
         return zip(args[::-1], defaults[::-1])
 
-    def process(self):
-        for module in dir(bg):
+    def process(self, galaxy=False):
+        for module in dir(self.obj):
             if module[0] == '_' or module[0].upper() == module[0]:
                 continue
+            # TODO: abstract.
+            # chakin: ('debug', 'session', 'dbname', 'dbhost', 'dbport', 'dbuser', 'dbpass', 'dbschema', 'get_cvterm_id', 'get_cvterm_name')
             if module in ('client', ):
                 continue
 
             sm = getattr(bg, module)
-            print(module, sm)
             submodules = dir(sm)
             # Find the "...Client"
             wanted = [x for x in submodules if 'Client' in x and x != 'Client'][0]
-            self.process_client(module, sm, wanted)
+            self.process_client(module, sm, wanted, galaxy=galaxy)
 
-    def process_client(self, module, sm, ssm_name):
-        log.info("Processing bioblend.%s.%s", module, ssm_name)
+    def process_client(self, module, sm, ssm_name, galaxy=False):
+        log.info("Processing %s.%s", module, ssm_name)
         ssm = getattr(sm, ssm_name)
         for f in dir(ssm):
             if f[0] == '_' or f[0].upper() == f[0]:
                 continue
             if f in IGNORE_LIST or '%s.%s' % (ssm, f) in IGNORE_LIST:
                 continue
-            self.orig(module, sm, ssm, f)
+            self.orig(module, sm, ssm, f, galaxy=galaxy)
         # Write module __init__
-        with open(os.path.join('parsec', 'commands', module, '__init__.py'), 'w') as handle:
+        with open(os.path.join(PROJECT_NAME, 'commands', module, '__init__.py'), 'w') as handle:
             pass
 
-        with open(os.path.join('parsec', 'commands', 'cmd_%s.py' % module), 'w') as handle:
+        with open(os.path.join(PROJECT_NAME, 'commands', 'cmd_%s.py' % module), 'w') as handle:
             handle.write('import click\n')
             # for function:
-            files = list(glob.glob("parsec/commands/%s/*.py" % module))
+            files = list(glob.glob(PROJECT_NAME + "/commands/%s/*.py" % module))
             files = sorted([f for f in files if "__init__.py" not in f])
             for idx, path in enumerate(files):
                 fn = path.replace('/', '.')[0:-3]
@@ -227,11 +311,11 @@ class ScriptBuilder(object):
 
             handle.write('\n@click.group()\n')
             handle.write('def cli():\n')
-            handle.write('\tpass\n\n')
+            handle.write('    pass\n\n')
             for i in range(len(files)):
                 handle.write('cli.add_command(func%d)\n' % i)
 
-    def orig(self, module_name, submodule, subsubmodule, function_name):
+    def orig(self, module_name, submodule, subsubmodule, function_name, galaxy=False):
         target = [module_name, function_name]
         log.debug("Building %s", '.'.join(target))
 
@@ -241,11 +325,24 @@ class ScriptBuilder(object):
         argdoc = func.__doc__
 
         data = {
+            'project_name': PROJECT_NAME,
+            'meta_module_name': module_name,
+            'meta_function_name': function_name,
             'command_name': function_name,
             'click_arguments': "",
             'click_options': "",
             'args_with_defaults': "ctx",
             'wrapped_method_args': "",
+            # Galaxy stuff
+            'galaxy_arguments': "    <!-- arguments -->\n",
+            'galaxy_options': "    <!-- options -->\n",
+            'galaxy_cli_arguments': "",
+            'galaxy_cli_options': "",
+            # By default we output JSON, so we sort the keys for
+            # reproducibility. however in some cases we don't want that,
+            # we'll want text outputs.
+            'galaxy_reformat_json': '| jq -S .',
+            'galaxy_output_format': 'json',
         }
         param_docs = {}
         if argdoc is not None:
@@ -312,14 +409,24 @@ class ScriptBuilder(object):
                         print("Error finding %s in %s" % (k, candidate))
                         descstr = None
                     data['click_options'] += self.__click_option(name=k, helpstr=descstr, ptype=param_type, default=orig_v)
+                    data['galaxy_options'] += self.__galaxy_option(name=k, helpstr=descstr, ptype=real_type, default=orig_v)
+                    data['galaxy_cli_options'] += PARAM_TRANSLATION_GALAXY_CLI[real_type]['opt'].format(name=k) + '\n'
                 else:
                     # Args, not kwargs
-                    tk = k
-                    method_signature_args.append(tk)
+                    method_signature_args.append(k)
                     if real_type == 'dict':
                         tk = 'json_loads(%s)' % k
+                    else:
+                        tk = k
                     method_exec_args.append(tk)
+                    try:
+                        descstr = param_docs[k]['desc']
+                    except KeyError:
+                        print("Error finding %s in %s" % (k, candidate))
+                        descstr = None
                     data['click_arguments'] += self.__click_argument(name=k, ptype=param_type)
+                    data['galaxy_arguments'] += self.__galaxy_argument(name=k, ptype=real_type, desc=descstr)
+                    data['galaxy_cli_arguments'] += PARAM_TRANSLATION_GALAXY_CLI[real_type]['arg'].format(name=k) + '\n'
 
 
             argspec_keys = [x[0] for x in argspec]
@@ -368,6 +475,8 @@ class ScriptBuilder(object):
         # TODO: rtype -> dict_output / list_output / text_output
         # __return__ must be in param_docs or it's a documentation BUG.
         if '__return__' not in param_docs:
+            # TODO: abstract (strict mode)
+            # raise Exception("%s is not documented with a return type" % candidate)
             param_docs['__return__'] = {
                 'type': 'dict',
                 'desc': '',
@@ -375,6 +484,10 @@ class ScriptBuilder(object):
             print("WARNING: %s is not documented with a return type" % candidate)
 
         data['output_format'] = param_docs['__return__']['type']
+        if data['output_format'] == 'None':
+            # Usually means writing to stdout.
+            data['galaxy_reformat_json'] = ''
+            data['galaxy_output_format'] = 'txt'
         # We allow "list of dicts" and other such silliness.
         if ' ' in data['output_format']:
             data['output_format'] = data['output_format'][0:data['output_format'].index(' ')]
@@ -388,13 +501,26 @@ class ScriptBuilder(object):
         # Generate a command name, prefix everything with auto_ to identify the
         # automatically generated stuff
         cmd_name = '%s.py' % function_name
-        cmd_path = os.path.join('parsec', 'commands', module_name, cmd_name)
+        cmd_path = os.path.join(PROJECT_NAME, 'commands', module_name, cmd_name)
+        if not os.path.exists(os.path.join(PROJECT_NAME, 'commands', module_name)):
+            os.makedirs(os.path.join(PROJECT_NAME, 'commands', module_name))
 
         # Save file
         with open(cmd_path, 'w') as handle:
             handle.write(self.template('click', data))
 
+        if galaxy:
+            tool_name = '%s_%s.xml' % (module_name, function_name)
+            if not os.path.exists('galaxy'):
+                os.makedirs('galaxy')
+            tool_path = os.path.join('galaxy', tool_name)
+            with open(tool_path, 'w') as handle:
+                handle.write(self.template('galaxy', data))
+
+
 if __name__ == '__main__':
     z = ScriptBuilder()
-    parser = argparse.ArgumentParser(description='process bioblend into CLI tools')
-    z.process()
+    parser = argparse.ArgumentParser(description='process libraries into CLI tools')
+    parser.add_argument('--galaxy', action='store_true', help="Write out galaxy tools as well")
+    args = parser.parse_args()
+    z.process(galaxy=args.galaxy)
