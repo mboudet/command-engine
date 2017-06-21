@@ -452,13 +452,14 @@ class ScriptBuilder(object):
         # TODO: rtype -> dict_output / list_output / text_output
         # __return__ must be in param_docs or it's a documentation BUG.
         if '__return__' not in param_docs:
-            # TODO: abstract (strict mode)
-            # raise Exception("%s is not documented with a return type" % candidate)
-            param_docs['__return__'] = {
-                'type': 'dict',
-                'desc': '',
-            }
-            print("WARNING: %s is not documented with a return type" % candidate)
+            if CONF_DATA['strict']:
+                raise Exception("%s is not documented with a return type" % candidate)
+            else:
+                param_docs['__return__'] = {
+                    'type': 'dict',
+                    'desc': '',
+                }
+                print("WARNING: %s is not documented with a return type" % candidate)
 
         data['output_format'] = param_docs['__return__']['type']
         if data['output_format'] == 'None':
