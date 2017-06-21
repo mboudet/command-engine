@@ -12,10 +12,10 @@ with open('.command-engine.yml', 'r') as handle:
     CONF_DATA = yaml.load(handle)
 
 # PY3K ONLY for the import.
-if 'docs_preinit' in CONF_DATA:
-    eval(CONF_DATA['docs_preinit'])
+if 'docs_import' in CONF_DATA:
+    for module in CONF_DATA['docs_import']:
+        vars()[module] = import_module(module)
 
-# TODO: abstract
 cli_module = import_module(CONF_DATA['project_name'] + '.cli')
 
 base_cli = getattr(cli_module, CONF_DATA['project_name'])
@@ -28,7 +28,6 @@ ${module_underline}
 ${command_help}
 ''')
 
-# TODO: abstract
 COMMANDS_TEMPLATE = """========
 Commands
 ========
@@ -51,7 +50,6 @@ for command in cli_module.list_cmds():
     parent_doc_handle = open(os.path.join(command_doc_dir, command + ".rst"), "w")
     parent_doc_handle.write('%s\n' % command)
     parent_doc_handle.write('%s\n' % ('=' * len(command)))
-    # TODO: abstract
     parent_doc_handle.write(Template("""
 This section is auto-generated from the help text for the ${library} command
 ``${command}``.
@@ -82,8 +80,7 @@ This section is auto-generated from the help text for the ${library} command
             output_rst = ""
 
         result = runner.invoke(base_cli, [command, subcommand, "--help"])
-        # TODO:if verbose
-        # print(result)
+        print(result)
         output = result.output
         lines = output.split("\n")
         new_lines = []
