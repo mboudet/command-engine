@@ -1,4 +1,5 @@
 project_name: parsec
+strict: false
 module:
     base_module: bioblend.galaxy
     instance_cls: "<class 'bioblend.galaxy.GalaxyInstance'>"
@@ -6,6 +7,7 @@ module:
     instance_args:
         - "http://localhost:8080"
         - "API_KEY"
+    instance_kwargs: {}
 
     ignore:
         top_attrs:
@@ -25,3 +27,9 @@ module:
             - max_get_retries
             - show_stderr
             - show_stdout
+
+documentation: |
+    Parsec is a set of wrappers for BioBlend's API. It builds a set of small,
+    useful utilities for talking to Galaxy servers. Each utility is implemented as
+    a subcommand of ``parsec``. This section of the documentation
+    describes these commands.
