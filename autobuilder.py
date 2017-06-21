@@ -7,33 +7,17 @@ import re
 import glob
 import argparse
 import logging
+from importlib import import_module
+import yaml
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
+with open('.command-engine.yml', 'r') as handle:
+    CONF_DATA = yaml.load(handle)
 
 
-PROJECT_NAME = 'parsec'
-# TODO: abstract out to a conf file.
-import bioblend.galaxy as bg
-# import chado as bg
-# CHAKIN_IGNORE_LIST = [
-# 'get', 'post'
-# ]
-IGNORE_LIST = [
-    'histories.download_dataset',
-    'histories.get_current_history',
-    'make_delete_request',
-    'make_get_request',
-    'make_post_request',
-    'make_put_request',
-    'set_max_get_retries',
-    'get_max_get_retries',
-    'set_get_retry_delay',
-    'get_retry_delay',
-    'set_retry_delay',
-    'max_get_retries',
-    'show_stderr',
-    'show_stdout',
-]
+PROJECT_NAME = CONF_DATA['project_name']
+underlying_lib = import_module(CONF_DATA['base_module'])
+IGNORE_LIST = CONF_DATA['module']['ignore']['funcs']
 
 
 def nice_name(label):
@@ -137,7 +121,8 @@ class ScriptBuilder(object):
             self.templates[tpl_id] = open(template, 'r').read()
 
         # TODO: abstract
-        self.obj = bg.GalaxyInstance("http://localhost:8080", "API_KEY")
+        func = getattr(underlying_lib, CONF_DATA['module']['instance_func'])
+        self.obj = func(CONF_DATA['module']['instance_args'])
 
     def template(self, template, opts):
         return self.templates[template] % opts
@@ -187,17 +172,9 @@ class ScriptBuilder(object):
         name = '.'.join(module_path)
         return importlib.import_module(name)
 
-    def boring(self, method_name):
-        if method_name.startswith('_'):
-            return True
-        if 'max_retries' in method_name or 'retry_delay' in method_name or 'get_retries' in method_name:
-            return True
-        # TODO replace with check for height in hierachy
-        return False
-
     def is_galaxyinstance(self, obj):
         # TODO: abstract
-        return str(type(obj)) == "<class 'bioblend.galaxy.GalaxyInstance'>"
+        return str(type(obj)) == CONF_DATA['module']['instance_cls']
 
     def is_function(self, obj):
         return str(type(obj)) == "<type 'instancemethod'>"
@@ -278,10 +255,10 @@ class ScriptBuilder(object):
                 continue
             # TODO: abstract.
             # chakin: ('debug', 'session', 'dbname', 'dbhost', 'dbport', 'dbuser', 'dbpass', 'dbschema', 'get_cvterm_id', 'get_cvterm_name')
-            if module in ('client', ):
+            if module in CONF_DATA['module']['ignore']['top_attrs']:
                 continue
 
-            sm = getattr(bg, module)
+            sm = getattr(underlying_lib, module)
             submodules = dir(sm)
             # Find the "...Client"
             wanted = [x for x in submodules if 'Client' in x and x != 'Client'][0]
