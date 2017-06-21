@@ -16,7 +16,7 @@ with open('.command-engine.yml', 'r') as handle:
 
 
 PROJECT_NAME = CONF_DATA['project_name']
-underlying_lib = import_module(CONF_DATA['base_module'])
+underlying_lib = import_module(CONF_DATA['module']['base_module'])
 IGNORE_LIST = CONF_DATA['module']['ignore']['funcs']
 
 
@@ -122,7 +122,7 @@ class ScriptBuilder(object):
 
         # TODO: abstract
         func = getattr(underlying_lib, CONF_DATA['module']['instance_func'])
-        self.obj = func(CONF_DATA['module']['instance_args'])
+        self.obj = func(*CONF_DATA['module'].get('instance_args', []), **CONF_DATA['module'].get('instance_kwargs', {}))
 
     def template(self, template, opts):
         return self.templates[template] % opts
