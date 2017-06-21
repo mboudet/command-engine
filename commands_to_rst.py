@@ -11,6 +11,10 @@ sys.path.insert(0, project_dir)
 with open('.command-engine.yml', 'r') as handle:
     CONF_DATA = yaml.load(handle)
 
+# PY3K ONLY for the import.
+if 'docs_preinit' in CONF_DATA:
+    eval(CONF_DATA['docs_preinit'])
+
 # TODO: abstract
 cli_module = import_module(CONF_DATA['project_name'] + '.cli')
 
@@ -56,7 +60,8 @@ This section is auto-generated from the help text for the ${library} command
 
 
     for subcommand in cli_module.list_subcmds(command):
-        # TODO: allow calling an pre-commit function from eval'd string.
+        if 'docs_reset_hook' in CONF_DATA:
+            eval(CONF_DATA['docs_reset_hook'])
 
         command_obj = cli_module.name_to_command(command, subcommand)
 
