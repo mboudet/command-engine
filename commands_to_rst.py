@@ -1,19 +1,20 @@
 #!/usr/bin/env python
-
 import os
 import sys
 from string import Template
-
+import yaml
+from importlib import import_module
 from click.testing import CliRunner
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_dir)
+with open('.command-engine.yml', 'r') as handle:
+    CONF_DATA = yaml.load(handle)
 
 # TODO: abstract
-from parsec.cli import list_cmds, list_subcmds
-from parsec import cli
+cli_module = import_module(CONF_DATA['project_name'] + '.cli')
 
-base_cli = cli.parsec
+base_cli = getattr(cli_module, CONF_DATA['project_name'])
 runner = CliRunner()
 
 COMMAND_TEMPLATE = Template('''
@@ -28,19 +29,16 @@ COMMANDS_TEMPLATE = """========
 Commands
 ========
 
-parsec is a set of wrappers for BioBlend's API. It builds a set of small,
-useful utilities for talking to Galaxy servers. Each utility is implemented as
-a subcommand of ``parsec``. This section of the documentation
-describes these commands.
+%s
 
 .. toctree::
    :maxdepth: 0
-"""
+""" % CONF_DATA['documentation']
 
 command_doc_dir = os.path.join("docs", "commands")
 commands = COMMANDS_TEMPLATE
 
-for command in list_cmds():
+for command in cli_module.list_cmds():
     if command == 'init':
         # Skip documenting init because it's special
         continue
@@ -51,16 +49,16 @@ for command in list_cmds():
     parent_doc_handle.write('%s\n' % ('=' * len(command)))
     # TODO: abstract
     parent_doc_handle.write(Template("""
-This section is auto-generated from the help text for the {library} command
+This section is auto-generated from the help text for the ${library} command
 ``${command}``.
 
-""").safe_substitute(command=command, library='parsec'))
+""").safe_substitute(command=command, library=CONF_DATA['project_name']))
 
 
-    for subcommand in list_subcmds(command):
+    for subcommand in cli_module.list_subcmds(command):
         # TODO: allow calling an pre-commit function from eval'd string.
 
-        command_obj = cli.name_to_command(command, subcommand)
+        command_obj = cli_module.name_to_command(command, subcommand)
 
         function = command_obj.callback
         raw_rst = function.__doc__

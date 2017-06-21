@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import importlib
 import inspect
 import os
 import copy
@@ -170,7 +169,7 @@ class ScriptBuilder(object):
     @classmethod
     def load_module(cls, module_path):
         name = '.'.join(module_path)
-        return importlib.import_module(name)
+        return import_module(name)
 
     def is_galaxyinstance(self, obj):
         # TODO: abstract
