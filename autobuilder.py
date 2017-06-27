@@ -10,13 +10,6 @@ from importlib import import_module
 import yaml
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
-with open('.command-engine.yml', 'r') as handle:
-    CONF_DATA = yaml.load(handle)
-
-
-PROJECT_NAME = CONF_DATA['project_name']
-underlying_lib = import_module(CONF_DATA['module']['base_module'])
-IGNORE_LIST = CONF_DATA['module']['ignore']['funcs']
 
 
 def nice_name(label):
@@ -111,7 +104,7 @@ PARAM_TRANSLATION_GALAXY_CLI = {
 
 class ScriptBuilder(object):
 
-    def __init__(self):
+    def __init__(self, config_path='.command-engine.yml'):
         self.path = os.path.realpath(__file__)
         templates = glob.glob(os.path.join(os.path.dirname(self.path), 'templates', '*'))
         self.templates = {}
@@ -119,9 +112,15 @@ class ScriptBuilder(object):
             (tpl_id, ext) = os.path.splitext(os.path.basename(template))
             self.templates[tpl_id] = open(template, 'r').read()
 
+        with open(config_path, 'r') as handle:
+            self.CONF_DATA = yaml.load(handle)
+
+        self.PROJECT_NAME = self.CONF_DATA['project_name']
+        self.underlying_lib = import_module(self.CONF_DATA['module']['base_module'])
+        self.IGNORE_LIST = self.CONF_DATA['module']['ignore']['funcs']
         # TODO: abstract
-        func = getattr(underlying_lib, CONF_DATA['module']['instance_func'])
-        self.obj = func(*CONF_DATA['module'].get('instance_args', []), **CONF_DATA['module'].get('instance_kwargs', {}))
+        func = getattr(self.underlying_lib, self.CONF_DATA['module']['instance_func'])
+        self.obj = func(*self.CONF_DATA['module'].get('instance_args', []), **self.CONF_DATA['module'].get('instance_kwargs', {}))
 
     def template(self, template, opts):
         return self.templates[template] % opts
@@ -173,7 +172,7 @@ class ScriptBuilder(object):
 
     def is_galaxyinstance(self, obj):
         # TODO: abstract
-        return str(type(obj)) == CONF_DATA['module']['instance_cls']
+        return str(type(obj)) == self.CONF_DATA['module']['instance_cls']
 
     def is_function(self, obj):
         return str(type(obj)) == "<type 'instancemethod'>"
@@ -254,10 +253,10 @@ class ScriptBuilder(object):
                 continue
             # TODO: abstract.
             # chakin: ('debug', 'session', 'dbname', 'dbhost', 'dbport', 'dbuser', 'dbpass', 'dbschema', 'get_cvterm_id', 'get_cvterm_name')
-            if module in CONF_DATA['module']['ignore']['top_attrs']:
+            if module in self.CONF_DATA['module']['ignore']['top_attrs']:
                 continue
 
-            sm = getattr(underlying_lib, module)
+            sm = getattr(self.underlying_lib, module)
             submodules = dir(sm)
             # Find the "...Client"
             wanted = [x for x in submodules if 'Client' in x and x != 'Client'][0]
@@ -269,17 +268,17 @@ class ScriptBuilder(object):
         for f in dir(ssm):
             if f[0] == '_' or f[0].upper() == f[0]:
                 continue
-            if f in IGNORE_LIST or '%s.%s' % (ssm, f) in IGNORE_LIST:
+            if f in self.IGNORE_LIST or '%s.%s' % (ssm, f) in self.IGNORE_LIST:
                 continue
             self.orig(module, sm, ssm, f, galaxy=galaxy)
         # Write module __init__
-        with open(os.path.join(PROJECT_NAME, 'commands', module, '__init__.py'), 'w') as handle:
+        with open(os.path.join(self.PROJECT_NAME, 'commands', module, '__init__.py'), 'w') as handle:
             pass
 
-        with open(os.path.join(PROJECT_NAME, 'commands', 'cmd_%s.py' % module), 'w') as handle:
+        with open(os.path.join(self.PROJECT_NAME, 'commands', 'cmd_%s.py' % module), 'w') as handle:
             handle.write('import click\n')
             # for function:
-            files = list(glob.glob(PROJECT_NAME + "/commands/%s/*.py" % module))
+            files = list(glob.glob(self.PROJECT_NAME + "/commands/%s/*.py" % module))
             files = sorted([f for f in files if "__init__.py" not in f])
             for idx, path in enumerate(files):
                 fn = path.replace('/', '.')[0:-3]
@@ -301,7 +300,7 @@ class ScriptBuilder(object):
         argdoc = func.__doc__
 
         data = {
-            'project_name': PROJECT_NAME,
+            'project_name': self.PROJECT_NAME,
             'meta_module_name': module_name,
             'meta_function_name': function_name,
             'command_name': function_name,
@@ -451,7 +450,7 @@ class ScriptBuilder(object):
         # TODO: rtype -> dict_output / list_output / text_output
         # __return__ must be in param_docs or it's a documentation BUG.
         if '__return__' not in param_docs:
-            if CONF_DATA['strict']:
+            if self.CONF_DATA['strict']:
                 raise Exception("%s is not documented with a return type" % candidate)
             else:
                 param_docs['__return__'] = {
@@ -478,9 +477,9 @@ class ScriptBuilder(object):
         # Generate a command name, prefix everything with auto_ to identify the
         # automatically generated stuff
         cmd_name = '%s.py' % function_name
-        cmd_path = os.path.join(PROJECT_NAME, 'commands', module_name, cmd_name)
-        if not os.path.exists(os.path.join(PROJECT_NAME, 'commands', module_name)):
-            os.makedirs(os.path.join(PROJECT_NAME, 'commands', module_name))
+        cmd_path = os.path.join(self.PROJECT_NAME, 'commands', module_name, cmd_name)
+        if not os.path.exists(os.path.join(self.PROJECT_NAME, 'commands', module_name)):
+            os.makedirs(os.path.join(self.PROJECT_NAME, 'commands', module_name))
 
         # Save file
         with open(cmd_path, 'w') as handle:
@@ -496,8 +495,9 @@ class ScriptBuilder(object):
 
 
 if __name__ == '__main__':
-    z = ScriptBuilder()
     parser = argparse.ArgumentParser(description='process libraries into CLI tools')
     parser.add_argument('--galaxy', action='store_true', help="Write out galaxy tools as well")
+    parser.add_argument('--config', help="Path to command-engine.yml file", default='.command-engine.yml')
     args = parser.parse_args()
+    z = ScriptBuilder(config_path=args.config)
     z.process(galaxy=args.galaxy)
