@@ -272,13 +272,13 @@ class ScriptBuilder(object):
                 continue
             self.orig(module, sm, ssm, f, galaxy=galaxy)
         # Write module __init__
-        with open(os.path.join(self.PROJECT_NAME, 'commands', module, '__init__.py'), 'w') as handle:
+        with open(os.path.join(self.PROJECT_NAME, 'commands', self.CONF_DATA['module'].get('prefix', '') + module, '__init__.py'), 'w') as handle:
             pass
 
-        with open(os.path.join(self.PROJECT_NAME, 'commands', 'cmd_%s.py' % module), 'w') as handle:
+        with open(os.path.join(self.PROJECT_NAME, 'commands', 'cmd_%s%s.py' % (self.CONF_DATA['module'].get('prefix', ''), module)), 'w') as handle:
             handle.write('import click\n')
             # for function:
-            files = list(glob.glob(self.PROJECT_NAME + "/commands/%s/*.py" % module))
+            files = list(glob.glob(self.PROJECT_NAME + "/commands/%s%s/*.py" % (self.CONF_DATA['module'].get('prefix', ''), module)))
             files = sorted([f for f in files if "__init__.py" not in f])
             for idx, path in enumerate(files):
                 fn = path.replace('/', '.')[0:-3]
@@ -477,9 +477,9 @@ class ScriptBuilder(object):
         # Generate a command name, prefix everything with auto_ to identify the
         # automatically generated stuff
         cmd_name = '%s.py' % function_name
-        cmd_path = os.path.join(self.PROJECT_NAME, 'commands', module_name, cmd_name)
-        if not os.path.exists(os.path.join(self.PROJECT_NAME, 'commands', module_name)):
-            os.makedirs(os.path.join(self.PROJECT_NAME, 'commands', module_name))
+        cmd_path = os.path.join(self.PROJECT_NAME, 'commands', self.CONF_DATA['module'].get('prefix', '') + module_name, cmd_name)
+        if not os.path.exists(os.path.join(self.PROJECT_NAME, 'commands', self.CONF_DATA['module'].get('prefix', '') + module_name)):
+            os.makedirs(os.path.join(self.PROJECT_NAME, 'commands', self.CONF_DATA['module'].get('prefix', '') + module_name))
 
         # Save file
         with open(cmd_path, 'w') as handle:
