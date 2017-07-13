@@ -56,7 +56,6 @@ This section is auto-generated from the help text for the ${library} command
 
 """).safe_substitute(command=command, library=CONF_DATA['project_name']))
 
-
     for subcommand in cli_module.list_subcmds(command):
         if 'docs_reset_hook' in CONF_DATA:
             eval(CONF_DATA['docs_reset_hook'])
@@ -115,7 +114,7 @@ This section is auto-generated from the help text for the ${library} command
             command=command,
             subcommand=subcommand,
             command_help="\n".join(new_lines),
-            module_underline = "-" * (len(subcommand) + len('```` command'))
+            module_underline="-" * (len(subcommand) + len('```` command'))
         )
         parent_doc_handle.write(text)
 
