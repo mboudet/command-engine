@@ -15,7 +15,10 @@ log = logging.getLogger()
 def nice_name(label):
     tmp = label.replace('_', ' ')
     tmp = tmp[0].upper() + tmp[1:]
-    callback = lambda pat: ' ' + pat.group(1).upper()
+
+    def callback(pat):
+        return ' ' + pat.group(1).upper()
+
     tmp = re.sub(r' ([a-z])', callback, tmp)
     return tmp
 
@@ -25,7 +28,7 @@ PARAM_TRANSLATION = {
         'type=str',
     ],
     'dict': [
-        #TODO
+        # TODO
         'type=str',
     ],
     'int': [
@@ -38,11 +41,11 @@ PARAM_TRANSLATION = {
         'is_flag=True',
     ],
     'list': [
-        'type=str', # TODO
+        'type=str',  # TODO
         'multiple=True',
     ],
     'list of str': [
-        'type=str', # TODO
+        'type=str',  # TODO
         'multiple=True',
     ],
     'file': [
@@ -56,7 +59,7 @@ PARAM_TRANSLATION_GALAXY = {
     'dict': '<param name="{name}" label="{label}" argument="{name}" type="data" format="json" {help} />',
     'int': '<param name="{name}" label="{label}" argument="{name}" type="integer" value="{default}" {help} />',
     'float': '<param name="{name}" label="{label}" argument="{name}" type="float" value="{default}" {help} />',
-    'bool': '<param name="{name}" label="{label}" argument="{name}" type="booelan" truevalue="--{name}" falsevalue="" {help} />',
+    'bool': '<param name="{name}" label="{label}" argument="{name}" type="boolean" truevalue="--{name}" falsevalue="" {help} />',
     'file': '<param name="{name}" label="{label}" argument="{name}" type="data" format="data" {help} />',
     None: '<error />',
     'list of str': '<repeat name="repeat_{name}" title="{name}">\n\t\t<param name="{name}" label="{label}" argument="{name}" type="text" {help} />\n\t</repeat>',
@@ -68,39 +71,40 @@ PARAM_TRANSLATION_GALAXY_CLI = {
         'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
         'arg': '"${name}"',
     },
-    'dict':{
+    'dict': {
         'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
         'arg': '"${name}"',
     },
-    'int':{
+    'int': {
         'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
         'arg': '"${name}"',
     },
-    'float':{
+    'float': {
         'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
         'arg': '"${name}"',
     },
-    'bool':{
+    'bool': {
         'opt': '#if ${name}:\n  ${name}\n#end if',
         'arg': '--${name}',
     },
-    'file':{
+    'file': {
         'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
         'arg': '"${name}"',
     },
-    None:{
+    None: {
         'opt': '## UNKNOWN {name}',
         'arg': '## UNKNOWN {name}',
     },
-    'list of str':{
+    'list of str': {
         'opt': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
         'arg': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
     },
-    'list':{
+    'list': {
         'opt': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
         'arg': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
     },
 }
+
 
 class ScriptBuilder(object):
 
@@ -284,9 +288,9 @@ class ScriptBuilder(object):
                 fn = path.replace('/', '.')[0:-3]
                 handle.write('from %s import cli as func%s\n' % (fn, idx))
 
-            handle.write('\n@click.group()\n')
+            handle.write('\n\n@click.group()\n')
             handle.write('def cli():\n')
-            handle.write('    pass\n\n')
+            handle.write('    pass\n\n\n')
             for i in range(len(files)):
                 handle.write('cli.add_command(func%d)\n' % i)
 
@@ -330,7 +334,7 @@ class ScriptBuilder(object):
                 if m:
                     assert m.group('param_name') == m.group('param_name2')
                     param_docs[m.group('param_name')] = {'type': m.group('param_type'),
-                                                            'desc': m.group('desc')}
+                                                         'desc': m.group('desc')}
                 m = returnre.match(subsec)
                 if m:
                     param_docs['__return__'] = {
@@ -403,7 +407,6 @@ class ScriptBuilder(object):
                     data['galaxy_arguments'] += self.__galaxy_argument(name=k, ptype=real_type, desc=descstr)
                     data['galaxy_cli_arguments'] += PARAM_TRANSLATION_GALAXY_CLI[real_type]['arg'].format(name=k) + '\n'
 
-
             argspec_keys = [x[0] for x in argspec]
             for k, v in argspec:
                 if k == '__return__':
@@ -439,8 +442,8 @@ class ScriptBuilder(object):
 
             # Complete args
             data['args_with_defaults'] = ', '.join(method_signature +
-                                                method_signature_args +
-                                                method_signature_kwargs)
+                                                   method_signature_args +
+                                                   method_signature_kwargs)
             data['wrapped_method_args'] = ', '.join(method_exec_args +
                                                     method_exec_kwargs)
             if had_weird_kwargs:
@@ -467,7 +470,7 @@ class ScriptBuilder(object):
         # We allow "list of dicts" and other such silliness.
         if ' ' in data['output_format']:
             data['output_format'] = data['output_format'][0:data['output_format'].index(' ')]
-        data['output_documentation'] = param_docs['__return__']['desc']
+        data['output_documentation'] = param_docs['__return__']['desc'].strip()
 
         # My function is more effective until can figure out docstring
         data['short_docstring'] = self.important_doc(argdoc)
