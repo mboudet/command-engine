@@ -68,40 +68,40 @@ PARAM_TRANSLATION_GALAXY = {
 
 PARAM_TRANSLATION_GALAXY_CLI = {
     'str': {
-        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
-        'arg': '"${name}"',
+        'opt': '#if ${name}:\n  --{name} \'${name}\'\n#end if',
+        'arg': '\'${name}\'',
     },
     'dict': {
-        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
-        'arg': '"${name}"',
+        'opt': '#if ${name}:\n  --{name} \'${name}\'\n#end if',
+        'arg': '\'${name}\'',
     },
     'int': {
-        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
-        'arg': '"${name}"',
+        'opt': '#if ${name}:\n  --{name} \'${name}\'\n#end if',
+        'arg': '\'${name}\'',
     },
     'float': {
-        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
-        'arg': '"${name}"',
+        'opt': '#if ${name}:\n  --{name} \'${name}\'\n#end if',
+        'arg': '\'${name}\'',
     },
     'bool': {
         'opt': '#if ${name}:\n  ${name}\n#end if',
         'arg': '--${name}',
     },
     'file': {
-        'opt': '#if ${name}:\n  --{name} "${name}"\n#end if',
-        'arg': '"${name}"',
+        'opt': '#if ${name}:\n  --{name} \'${name}\'\n#end if',
+        'arg': '\'${name}\'',
     },
     None: {
         'opt': '## UNKNOWN {name}',
         'arg': '## UNKNOWN {name}',
     },
     'list of str': {
-        'opt': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
-        'arg': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
+        'opt': '#for $rep in $repeat_{name}:\n  --{name} \'$rep.{name}\'\n#end for',
+        'arg': '#for $rep in $repeat_{name}:\n  --{name} \'$rep.{name}\'\n#end for',
     },
     'list': {
-        'opt': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
-        'arg': '#for $rep in $repeat_{name}:\n  --{name} "$rep.{name}"\n#end for',
+        'opt': '#for $rep in $repeat_{name}:\n  --{name} \'$rep.{name}\'\n#end for',
+        'arg': '#for $rep in $repeat_{name}:\n  --{name} \'$rep.{name}\'\n#end for',
     },
 }
 
