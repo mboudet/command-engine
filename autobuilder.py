@@ -290,6 +290,8 @@ class ScriptBuilder(object):
 
             handle.write('\n\n@click.group()\n')
             handle.write('def cli():\n')
+            if hasattr(ssm, "__doc__"):
+                handle.write('    """%s"""\n' % getattr(ssm, "__doc__"))
             handle.write('    pass\n\n\n')
             for i in range(len(files)):
                 handle.write('cli.add_command(func%d)\n' % i)
