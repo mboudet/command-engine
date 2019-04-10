@@ -9,7 +9,7 @@ from click.testing import CliRunner
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_dir)
 with open('.command-engine.yml', 'r') as handle:
-    CONF_DATA = yaml.load(handle)
+    CONF_DATA = yaml.safe_load(handle)
 
 # PY3K ONLY for the import.
 if 'docs_import' in CONF_DATA:
