@@ -469,6 +469,8 @@ class ScriptBuilder(object):
             # Usually means writing to stdout.
             data['galaxy_reformat_json'] = ''
             data['galaxy_output_format'] = 'txt'
+        else:
+            data['output_format'] = data['output_format'].lower()
         # We allow "list of dicts" and other such silliness.
         if ' ' in data['output_format']:
             data['output_format'] = data['output_format'][0:data['output_format'].index(' ')]
