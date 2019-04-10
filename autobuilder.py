@@ -117,7 +117,7 @@ class ScriptBuilder(object):
             self.templates[tpl_id] = open(template, 'r').read()
 
         with open(config_path, 'r') as handle:
-            self.CONF_DATA = yaml.load(handle)
+            self.CONF_DATA = yaml.safe_load(handle)
 
         self.PROJECT_NAME = self.CONF_DATA['project_name']
         self.underlying_lib = import_module(self.CONF_DATA['module']['base_module'])
