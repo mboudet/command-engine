@@ -311,6 +311,7 @@ class ScriptBuilder(object):
             'meta_function_name': function_name,
             'command_name': function_name,
             'click_arguments': "",
+            'other_loads': '',
             'click_options': "",
             'args_with_defaults': "ctx",
             'wrapped_method_args': "",
@@ -378,6 +379,7 @@ class ScriptBuilder(object):
                         method_signature_kwargs.append("%s=%s" % (k, v))
                         if real_type == 'dict':
                             v = 'json_loads(%s)' % v
+                            data['other_loads'] += ', json_loads'
                         method_exec_kwargs.append('%s=%s' % (k, k))
                     else:
                         # Add to signature, but NOT exec because we take care of that elsewhere.
@@ -397,6 +399,7 @@ class ScriptBuilder(object):
                     method_signature_args.append(k)
                     if real_type == 'dict':
                         tk = 'json_loads(%s)' % k
+                        data['other_loads'] += ', json_loads'
                     else:
                         tk = k
                     method_exec_args.append(tk)
