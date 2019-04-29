@@ -1,5 +1,5 @@
 import click
-from %(project_name)s.cli import pass_context
+from %(project_name)s.cli import pass_context, json_loads
 from %(project_name)s.decorators import custom_exception, %(output_format)s_output
 
 
