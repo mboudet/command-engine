@@ -331,7 +331,8 @@ class ScriptBuilder(object):
             sections = [x for x in argdoc.split("\n\n")]
             sections = [re.sub('\s+', ' ', x.strip()) for x in sections if x != '']
             paramre = re.compile(":type (?P<param_name>[^:]+): (?P<param_type>[^:]+) :param (?P<param_name2>[^:]+): (?P<desc>.+)")
-            returnre = re.compile(":rtype: (?P<param_type>[^:]+) :return: (?P<desc>.+)")
+            returnre = re.compile(":rtype:\s*(?P<param_type>[^:]+)\s*(?P<ret>:returns?:)\s*(?P<desc>.+)")
+            rereturn = re.compile("(?P<ret>:returns?:)\s*(?P<desc>.+)\s*:rtype:\s*(?P<param_type>[^:]+)")
             for subsec in sections:
                 m = paramre.match(subsec)
                 if m:
@@ -339,10 +340,15 @@ class ScriptBuilder(object):
                     param_docs[m.group('param_name')] = {'type': m.group('param_type'),
                                                          'desc': m.group('desc')}
                 m = returnre.match(subsec)
+
+                # If first regex fails, try second
+                if not m:
+                    m = rereturn.match(subsec)
+
                 if m:
                     param_docs['__return__'] = {
                         'type': m.group('param_type'),
-                        'desc': argdoc[argdoc.index(':return:') + len(':return:'):],
+                        'desc': argdoc[argdoc.index(m.group('ret')) + len(m.group('ret')):].strip(),
                     }
 
         argspec = list(self.pair_arguments(func))
