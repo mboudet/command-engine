@@ -286,15 +286,17 @@ class ScriptBuilder(object):
             files = sorted([f for f in files if "__init__.py" not in f])
             for idx, path in enumerate(files):
                 fn = path.replace('/', '.')[0:-3]
-                handle.write('from %s import cli as func%s\n' % (fn, idx))
+                fn_tail = path.split('/')[-1][0:-3]
+                handle.write('from %s import cli as %s\n' % (fn, fn_tail))
 
             handle.write('\n\n@click.group()\n')
             handle.write('def cli():\n')
             if hasattr(ssm, "__doc__") and getattr(ssm, "__doc__"):
                 handle.write('    """%s"""\n' % getattr(ssm, "__doc__"))
             handle.write('    pass\n\n\n')
-            for i in range(len(files)):
-                handle.write('cli.add_command(func%d)\n' % i)
+            for i in files:
+                fn_tail = i.split('/')[-1][0:-3]
+                handle.write('cli.add_command(%s)\n' % fn_tail)
 
     def orig(self, module_name, submodule, subsubmodule, function_name, galaxy=False):
         target = [module_name, function_name]
