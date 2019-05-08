@@ -468,13 +468,15 @@ class ScriptBuilder(object):
                 deprecated = True
 
             if self.CONF_DATA['strict']:
-                raise Exception("%s is not documented with a return type" % candidate)
+                if not deprecated:
+                    raise Exception("%s is not documented with a return type" % candidate)
             else:
                 param_docs['__return__'] = {
                     'type': 'dict',
                     'desc': '',
                 }
-                print("WARNING: %s is not documented with a return type" % candidate)
+                if not deprecated:
+                    log.warning("%s is not documented with a return type" % candidate)
 
         data['output_format'] = param_docs['__return__']['type']
         if data['output_format'] == 'None':
