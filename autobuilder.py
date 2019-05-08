@@ -326,6 +326,7 @@ class ScriptBuilder(object):
             'galaxy_output_format': 'json',
         }
         param_docs = {}
+        deprecated = False
         if argdoc is not None:
             sections = [x for x in argdoc.split("\n\n")]
             sections = [re.sub('\s+', ' ', x.strip()) for x in sections if x != '']
@@ -387,7 +388,7 @@ class ScriptBuilder(object):
                     try:
                         descstr = param_docs[k]['desc']
                     except KeyError:
-                        print("Error finding %s in %s" % (k, candidate))
+                        log.warning("Error finding %s in %s" % (k, candidate))
                         descstr = None
                     data['click_options'] += self.__click_option(name=k, helpstr=descstr, ptype=param_type, default=orig_v)
                     data['galaxy_options'] += self.__galaxy_option(name=k, helpstr=descstr, ptype=real_type, default=orig_v)
@@ -403,7 +404,7 @@ class ScriptBuilder(object):
                     try:
                         descstr = param_docs[k]['desc']
                     except KeyError:
-                        print("Error finding %s in %s" % (k, candidate))
+                        log.warning("Error finding %s in %s" % (k, candidate))
                         descstr = None
                     data['click_arguments'] += self.__click_argument(name=k, ptype=param_type)
                     data['galaxy_arguments'] += self.__galaxy_argument(name=k, ptype=real_type, desc=descstr)
@@ -455,6 +456,9 @@ class ScriptBuilder(object):
         # TODO: rtype -> dict_output / list_output / text_output
         # __return__ must be in param_docs or it's a documentation BUG.
         if '__return__' not in param_docs:
+            if '.. deprecated::' in argdoc:
+                deprecated = True
+
             if self.CONF_DATA['strict']:
                 raise Exception("%s is not documented with a return type" % candidate)
             else:
@@ -489,8 +493,12 @@ class ScriptBuilder(object):
             os.makedirs(os.path.join(self.PROJECT_NAME, 'commands', self.CONF_DATA['module'].get('prefix', '') + module_name))
 
         # Save file
-        with open(cmd_path, 'w') as handle:
-            handle.write(self.template('click', data))
+        if deprecated:
+            if os.path.exists(cmd_path):
+                os.unlink(cmd_path)
+        else:
+            with open(cmd_path, 'w') as handle:
+                handle.write(self.template('click', data))
 
         if galaxy:
             tool_name = '%s_%s.xml' % (module_name, function_name)
