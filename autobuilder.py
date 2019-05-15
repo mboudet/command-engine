@@ -260,7 +260,10 @@ class ScriptBuilder(object):
             if module in self.CONF_DATA['module']['ignore']['top_attrs']:
                 continue
 
-            sm = getattr(self.underlying_lib, module)
+            own_copy = getattr(self.obj, module)
+            to_import = own_copy.__class__.__module__
+            sm = import_module(to_import)
+
             submodules = dir(sm)
             # Find the "...Client"
             wanted = [x for x in submodules if 'Client' in x and x != 'Client'][0]
