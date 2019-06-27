@@ -352,7 +352,7 @@ class ScriptBuilder(object):
 
                 if m:
                     param_docs['__return__'] = {
-                        'type': m.group('param_type'),
+                        'type': m.group('param_type').strip(),
                         'desc': argdoc[argdoc.index(m.group('ret')) + len(m.group('ret')):].strip(),
                     }
 
